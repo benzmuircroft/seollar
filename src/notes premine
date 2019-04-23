@@ -1,0 +1,64 @@
+Premine System in Forkgen
+Forkgen has an optional Premine system. When a fork node with premine hard forks into the new consensus rules, it adds a single coinbase transaction to the UTXO set, which sends the premine amount to the premine pubkey in the form of a P2PKH output. This can then be spent 100 blocks later by creating a raw transaction manually which spends the premine transaction ID's first vout.
+
+Premine Variables
+The premine is defined by two variables, the premine amount and the premine pubkey. When the fork occurs (before the first new consensus block has been mined), the UTXO set is modified to include an additional coinbase transaction sending the premine amount to the P2PKH destination of the premine pubkey.
+
+
+Preparations when making a Premined Fork
+If you intend to create a premined fork, you need to prepare a key pair (a private key and a corresponding public key). This section describes how to do this using the Bitcoin Core command line interface (bitcoin-cli), but any software which lets you create private and public keypairs is sufficient, at least if you are able to obtain the WIF format of the private key (this is the default format in Bitcoin Core).
+
+Obtaining a new keypair for the premine output
+Run the commands in bold and verify that you get the correct results:
+
+$ address=$(bitcoin-cli getnewaddress)
+(you should not get an error here)
+$ echo $address
+(you should see an address here)
+$ bitcoin-cli getaddressinfo $address
+{
+  "address": "...",
+  "scriptPubKey": "...",
+  "ismine": true,
+  "iswatchonly": false,
+  "isscript": true,
+  "iswitness": false,
+  "script": "...",
+  "hex": "...",
+  "pubkey": "02c29270ablablablablablablablablablablablablablablablablablabla1b6b",
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+             (save the pubkey value somewhere, you need it later!)
+  ...
+}
+$ bitcoin-cli dumpprivkey $address
+KwZnblablablablablablablablablablablablablablablavZq
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(save the privkey value somewhere, you need it later!)
+(note: you should keep this one safe and not show it to anyone)
+Creating a premined fork
+At the forkgen start page, fill in your pubkey (not your private key!) as the Premine Pubkey Destination, and set the Premine Amount to whatever you want.
+
+Claiming a premine output
+In order to claim the premine coins, you must wait until 100 blocks have been mined on the new fork. The reason is that the premine is paid out in the form of a coinbase transaction, and these all need to wait for 100 confirmations before they can be spent.
+Note also that most wallet software, including forkgen itself, cannot actually see the premine coinbase transaction. As such, it won't be added to your wallet until you first send it to yourself by spending the premine transaction. Before we do that, though, you need to tell the wallet how to spend it. In other words, you need to import the privkey you exported earlier.
+$ FORKNAME-cli importprivkey the private key "premine" false true
+Let's find out what the premine transaction is by running
+$ FORKNAME-cli getmininginfo
+Make note of the "premine transaction ID" and "premine amount". You wanna send the premine amount, minus a tiny amount (around 0.0001 coins or so); we call this the "output amount" below. We wanna send from that one to ourselves. Let's make a new address to which we send it all.
+$ FORKNAME-cli getnewaddress
+Fblablablablablabla
+Replace the address below with the Fblablablablablabla above.
+$ FORKNAME-cli createrawtransaction "[{\"txid\":\"premine transaction ID here\",\"vout\":0}]" "{\"addresshere\":output amount here}"
+(transaction hex should appear here)
+Since we have imported the private key for the address we should be able to sign this transaction.
+$ FORKNAME-cli signrawtransaction TRANSACTIONHEXHERE
+{
+    "hex": "HEXDATAHERE",
+    "complete": true
+}
+Note that if "complete" is not true, something has gone wrong and you will not be able to send the transaction and claim the premine. Ensure that you imported the private key, and that you didn't misspell anything else.
+
+Now it's time to send the transaction that claims the premine coins.
+$ FORKNAME-cli sendrawtransaction HEXDATAHERE
+TRANSACTION ID APPEARS HERE
+You may get errors at this point. If you get "bad-txns-premature-spend-of-coinbase", it means you did not wait 100 blocks as you were told to. Mine 100 blocks and then try again. 
